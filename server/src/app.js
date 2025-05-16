@@ -15,8 +15,11 @@ app.use(express.static("public"))
 app.use(cookieParser())
 
 import userRouter from "./routes/user.route.js"
+import sessionRouter from "./routes/sessions.route.js"
+import { verifyJWT } from "./middlewares/auth.middleware.js"
 
 app.use("/api/v1/user",userRouter)
+app.use("/api/v1/session",verifyJWT,sessionRouter)
 
 
 

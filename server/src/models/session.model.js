@@ -7,25 +7,30 @@ const sessionSchema = new Schema(
             ref : "User",
             required : true
         },
-        startTime:{
-            type : Date,
-            required : true
-        },
-        endTime:{
-            type : Date,
-            required : true
-        },
+        intervals:[
+            {
+                startTime: Date,
+                endTime : Date
+            }
+        ],
         duration :{
             type : Number,
-            required : true
+            required : true,
+            default:0
         },
         tags:{
-            type :[String],
-            default : []
+            type :String,
+            default : "",
+            required :true
         },
-        isCompleted:{
-            type: Boolean,
-            default : false
+        status: {
+            type: String,
+            enum: ["active", "paused", "completed"],
+            default: "active"
+        },
+        date: {
+            type: String, 
+            required: true
         }
     },
     {timestamps:true}
