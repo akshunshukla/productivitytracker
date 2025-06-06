@@ -36,7 +36,7 @@ const registerUser = asyncHandler( async(req,res) =>{
         password
     })
 
-    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id);
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id)
 
     const createdUser = await User.findById(user._id).select("-password -refreshToken")
     if(!createdUser) throw new ApiError(500,"Something went wrong while registering the user")
@@ -112,8 +112,8 @@ const logoutUser = asyncHandler(async(req,res)=>{
 })
 
 const refreshAccessToken =asyncHandler(async(req,res)=>{
-    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
-    if(!incomingRefreshToken) throw new ApiError(401,"unauthorised request");
+    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
+    if(!incomingRefreshToken) throw new ApiError(401,"unauthorised request")
 
     const decodedtoken = jwt.verify(incomingRefreshToken,process.env.REFRESH_TOKEN_SECRET)
     const user = await User.findById(decodedtoken?._id)
@@ -121,7 +121,7 @@ const refreshAccessToken =asyncHandler(async(req,res)=>{
 
     if(incomingRefreshToken !== user?.refreshToken) throw new ApiError(401, "refresh token is expired or used")
 
-    const{accessToken,refreshToken : newrefreshToken} = await generateAccessAndRefreshToken(user._id);
+    const{accessToken,refreshToken : newrefreshToken} = await generateAccessAndRefreshToken(user._id)
 
     const options = {
         httpOnly:true,
