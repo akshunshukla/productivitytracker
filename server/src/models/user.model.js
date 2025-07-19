@@ -38,6 +38,16 @@ const userSchema = new Schema(
         },
         refreshToken:{
             type : String
+        },
+        aiInsights : {
+            topPerformingTags : [String],
+            improvementAreaTags : [String],
+            peakProductiveTime : {
+                type : String
+            },
+            habitAnalysis : {
+                type:String
+            }
         }
     },
     {

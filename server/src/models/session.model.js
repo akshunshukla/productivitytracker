@@ -19,8 +19,8 @@ const sessionSchema = new Schema(
             default:0
         },
         tags:{
-            type :String,
-            default : "",
+            type :[String],
+            default : [],
             required :true
         },
         status: {
@@ -31,6 +31,15 @@ const sessionSchema = new Schema(
         date: {
             type: String, 
             required: true
+        },
+        rating :{
+            type : Number,
+            min : 1,
+            max : 5
+        },
+        notes:{
+            type : String,
+            trim : true
         }
     },
     {timestamps:true}

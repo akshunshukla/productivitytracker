@@ -100,46 +100,50 @@ const resumeSession = asyncHandler(async (req, res) => {
 
 const endSession = asyncHandler(async (req, res) => {
     const { sessionId } = req.params
-
-    const session = await Session.findById(sessionId)
-    if (!session) throw new ApiError(404, "Session not found")
-
-    const lastInterval = session.intervals[session.intervals.length - 1]
-
-    let updateQuery = {
-    $set: {
-        status: "completed"
+    const { rating, notes } = req.body;
+    if (!rating) {
+        throw new ApiError(400, "A session rating is required to end a session.");
     }
+    if (rating < 1 || rating > 5) {
+        throw new ApiError(400, "Rating must be between 1 and 5.");
     }
+    
+    const session = await Session.findById(sessionId);
+    if (!session) throw new ApiError(404, "Session not found");
 
-    if (lastInterval && !lastInterval.endTime) {
-    const endTime = new Date()
-    const intervalDuration = endTime - new Date(lastInterval.startTime)
-
-    updateQuery = {
-        $set: {
-        "intervals.$[last].endTime": endTime,
-        status: "completed"
-        },
-        $inc: {
-        duration: intervalDuration
-        }
-    }
+    // Prevent ending a session that doesn't belong to the user
+    if (session.userId.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You are not authorized to end this session.");
     }
 
-    const updatedSession = await Session.findByIdAndUpdate(
-        sessionId,
-        updateQuery,
-        {
-        new: true,
-        arrayFilters: [{ "last.endTime": { $exists: false } }],
-        }
-    )
+    let finalDuration = session.duration;
+    const lastInterval = session.intervals[session.intervals.length - 1];
+
+    // If the session was active, calculate the final interval's duration
+    if (session.status === "active" && lastInterval && !lastInterval.endTime) {
+        lastInterval.endTime = new Date();
+        finalDuration += (lastInterval.endTime - new Date(lastInterval.startTime));
+    }
+
+    // Update the session with final status, duration, rating, and notes
+    session.status = "completed";
+    session.duration = finalDuration;
+    session.rating = rating;
+    if (notes) {
+        session.notes = notes;
+    }
+
+    const updatedSession = await session.save({ validateBeforeSave: true });
+
+    // --- Optional but Recommended: Trigger AI analysis in the background ---
+    // We'll build this `runAllAnalysesForUser` function in Step 5
+    // import { runAllAnalysesForUser } from "../services/analytics.service.js";
+    // runAllAnalysesForUser(req.user._id); // Don't await this, let it run in the background
 
     return res
         .status(200)
-        .json(new ApiResponse(200, updatedSession, "Session ended successfully"))
-})
+        .json(new ApiResponse(200, updatedSession, "Session ended successfully."));
+});
 
 
 const deleteSession = asyncHandler(async (req, res) => {

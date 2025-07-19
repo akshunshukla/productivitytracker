@@ -135,6 +135,9 @@ const getTagWiseStats = asyncHandler(async (req, res) => {
             },
         },
         {
+            $unwind : "$tags"
+        },
+        {
             $group: {
                 _id: "$tags", 
                 totalDuration: { $sum: "$duration" },
