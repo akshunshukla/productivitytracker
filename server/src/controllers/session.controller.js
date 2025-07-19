@@ -13,6 +13,15 @@ const startSession = asyncHandler(async (req, res) => {
         throw new ApiError(400, "At least one tag is required");
     }
 
+    const existingActiveSession = await Session.findOne({
+        userId: user._id,
+        status: "active"
+    });
+
+    if (existingActiveSession) {
+        throw new ApiError(400, "You already have an active session. Please end or pause it before starting a new one.");
+    }
+
     const newSession = await Session.create({
         userId: user._id,
         intervals: [{ startTime: new Date() }],
@@ -57,6 +66,10 @@ const pauseSession = asyncHandler(async (req, res) => {
     const endTime = new Date();
     const intervalDuration = endTime - new Date(lastInterval.startTime);
 
+    if (intervalDuration < 0) {
+        throw new ApiError(400, "Invalid time calculation. Please check your system time.");
+    }
+    
     const updatedSession = await Session.findByIdAndUpdate(
         sessionId,
         {
@@ -99,8 +112,18 @@ const resumeSession = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Session is already active");
     }
 
+    const existingActiveSession = await Session.findOne({
+        userId: user._id,
+        status: "active",
+        _id: { $ne: sessionId }
+    });
+
     if (session.status === "completed") {
         throw new ApiError(400, "Cannot resume a completed session");
+    }
+
+    if (existingActiveSession) {
+        throw new ApiError(400, "You have another active session. Please pause it first before resuming this one.");
     }
 
     const updatedSession = await Session.findByIdAndUpdate(
@@ -201,10 +224,24 @@ const deleteSession = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, deletedSession, "Session deleted successfully"));
 });
 
+    const getCurrentSession = asyncHandler(async (req, res) => {
+    const user = req.user;
+    
+    const activeSession = await Session.findOne({
+        userId: user._id,
+        status: { $in: ["active", "paused"] }
+    }).sort({ createdAt: -1 });
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, activeSession, "Current session fetched successfully"));
+    });
+
 export {
     startSession,
     pauseSession,
     resumeSession,
     endSession,
     deleteSession,
+    getCurrentSession,
 };
