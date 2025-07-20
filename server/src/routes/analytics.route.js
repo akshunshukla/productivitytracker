@@ -1,5 +1,5 @@
 import {Router} from "express"
-import { getDailyBreakdown, getStreakInfo, getTagWiseStats, getUserTags, getWeeklySummary } from "../controllers/report.controller";
+import { getDailyBreakdown, getStreakInfo, getTagWiseStats, getUserTags, getWeeklySummary } from "../controllers/report.controller.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { runAllAnalysesForUser } from "../services/analytics.service.js"; // Import our new service
 import { ApiResponse } from "../utils/ApiResponse.js";

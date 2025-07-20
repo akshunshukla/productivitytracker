@@ -1,7 +1,7 @@
-import { ApiError } from "../utils/ApiError"
-import { asyncHandler } from "../utils/asyncHandler"
-import { Session } from "../models/session.model"
-import { ApiResponse } from "../utils/ApiResponse"
+import { ApiError } from "../utils/ApiError.js"
+import { asyncHandler } from "../utils/asyncHandler.js"
+import { Session } from "../models/session.model.js"
+import { ApiResponse } from "../utils/ApiResponse.js"
 import mongoose from "mongoose"
 
 
@@ -33,10 +33,10 @@ const getWeeklySummary = asyncHandler(async (req,res)=>{
     const endOfWeek = new Date(startOfWeek)
     endOfWeek.setDate(startOfWeek.getDate() + 7)
 
-    const session = await Session.aggregate([
+    const sessions = await Session.aggregate([
         {
             $match:{
-                userId : mongoose.Types.ObjectId(req.user?._id),
+                userId : new mongoose.Types.ObjectId(req.user?._id),
                 createdAt: {$gte:startOfWeek , $lt : endOfWeek},
                 status : "completed"
             }
@@ -89,7 +89,7 @@ const getDailyBreakdown = asyncHandler(async (req, res) => {
     const dailyStats = await Session.aggregate([
         {
             $match: {
-                userId: user._id,
+                userId: new mongoose.Types.ObjectId(user._id),
                 date: { $gte: startStr, $lt: endStr }
             }
         },
@@ -122,15 +122,15 @@ const getTagWiseStats = asyncHandler(async (req, res) => {
         throw new ApiError(401, "Unauthorized")
     }
 
-    const { startOfWeek, endOfWeek } = getWeekRange()
+    const { startStr, endStr } = getWeekRange()
 
     const tagStats = await Session.aggregate([
         {
             $match: {
-                userId: user._id,
+                userId: new mongoose.Types.ObjectId(user._id),
                 date: {
-                    $gte: startOfWeek.toISOString().split("T")[0],
-                    $lt: endOfWeek.toISOString().split("T")[0],
+                    $gte: startStr,
+                    $lt: endStr,
                 },
             },
         },
@@ -157,7 +157,7 @@ const getStreakInfo = asyncHandler(async (req, res) => {
     if (!user) throw new ApiError(401, "Unauthorized")
 
     const sessions = await Session.find(
-        { userId: user._id },
+        { userId: new mongoose.Types.ObjectId(user._id) },
         { date: 1, _id: 0 }
     )
 
@@ -190,9 +190,9 @@ const getStreakInfo = asyncHandler(async (req, res) => {
     }, "Streak info fetched successfully"))
 })
 
-const getAllTags = asyncHandler(async (req, res) => {
+const getUserTags = asyncHandler(async (req, res) => {
     const user = req.user
-    const tags = await Session.distinct("tags", { userId: user._id })
+    const tags = await Session.distinct("tags", { userId: new mongoose.Types.ObjectId(user._id) })
     return res.status(200).json(new ApiResponse(200, tags, "Fetched all tags"))
 })
 

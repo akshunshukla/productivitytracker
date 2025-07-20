@@ -158,10 +158,25 @@ const deleteSession = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, deletedSession, "Session deleted successfully"))
 })
 
+const getCurrentSession = asyncHandler(async (req, res) => {
+    const user = req.user
+    if (!user) throw new ApiError(401, "Unauthorized")
+
+    const currentSession = await Session.findOne({
+        userId: user._id,
+        status: { $in: ["active", "paused"] }
+    })
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, currentSession, "Current session fetched successfully"))
+})
+
 export {
   startSession,
   pauseSession,
   resumeSession,
   endSession,
   deleteSession,
+  getCurrentSession
 }
