@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const productionUrl = "https://productivity-tracker-api.onrender.com";
+const productionUrl = "https://productivity-tracker-api.onrender.com/api/v1";
 const api = axios.create({
   baseURL:
     import.meta.env.MODE === "production"
