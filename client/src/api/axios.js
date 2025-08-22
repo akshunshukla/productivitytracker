@@ -1,9 +1,11 @@
 import axios from "axios";
 
+const productionUrl = "https://sessiontracker-backend.onrender.com/api/v1";
 const api = axios.create({
-  baseURL: import.meta.env.PROD
-    ? import.meta.env.VITE_API_BASE_URL
-    : "http://localhost:8000/api/v1",
+  baseURL:
+    import.meta.env.MODE === "production"
+      ? productionUrl
+      : "http://localhost:8000/api/v1",
 
   withCredentials: true,
 });
