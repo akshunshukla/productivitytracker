@@ -4,6 +4,29 @@ import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 
+const handleGoogleCallback = asyncHandler(async (req, res) => {
+  // Passport attaches the user to req.user after successful authentication
+  const user = req.user;
+
+  // Generate our own JWT tokens
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+    user._id
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production", // Use secure cookies in production
+  };
+
+  // Redirect the user back to the frontend application with the tokens
+  // You can also send the user data in the query parameters if needed
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .redirect(`${process.env.CORS_ORIGIN}`); // Redirect to your frontend's main page
+});
+
 const generateAccessAndRefreshToken = async (userId) => {
   try {
     const user = await User.findById(userId);
@@ -203,4 +226,5 @@ export {
   refreshAccessToken,
   getCurrentUser,
   updateUserDetails,
+  handleGoogleCallback,
 };
