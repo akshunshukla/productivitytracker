@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom"; // Import Navigate
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Tracker from "./pages/Tracker";
@@ -10,13 +10,16 @@ function App() {
   return (
     <>
       <Routes>
+        {/* Redirect base route to signup */}
+        <Route path="/" element={<Navigate to="/signup" replace />} />
+
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
 
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<Tracker />} />
+          <Route path="/tracker" element={<Tracker />} />
           <Route path="/analytics" element={<Analytics />} />
         </Route>
       </Routes>

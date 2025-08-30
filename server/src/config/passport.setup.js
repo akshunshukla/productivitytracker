@@ -12,22 +12,18 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        // Find if a user already exists with this Google ID
         let user = await User.findOne({ googleId: profile.id });
 
         if (user) {
-          // If user exists, pass them to the next step
           return done(null, user);
         } else {
-          // If user doesn't exist, create a new one
           const newUser = await User.create({
             googleId: profile.id,
             fullname: profile.displayName,
             email: profile.emails[0].value,
-            // Create a username from the email, or you can prompt the user for one later
+
             username: profile.emails[0].value.split("@")[0],
             avatar: profile.photos[0].value,
-            // Password is not set for Google users
           });
           return done(null, newUser);
         }
@@ -38,7 +34,6 @@ passport.use(
   )
 );
 
-// These are not strictly necessary for JWT but are good practice for Passport
 passport.serializeUser((user, done) => {
   done(null, user.id);
 });

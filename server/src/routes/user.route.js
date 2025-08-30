@@ -25,12 +25,11 @@ router.get(
   passport.authenticate("google", { scope: ["profile", "email"] })
 );
 
-// 2. The callback route that Google will redirect to after user approval
 router.get(
   "/auth/google/callback",
   passport.authenticate("google", {
-    failureRedirect: "/login", // or a specific failure page
-    session: false, // We are using JWT, not sessions
+    failureRedirect: "/login",
+    session: false,
   }),
   handleGoogleCallback
 );
