@@ -18,6 +18,11 @@ const taskSchema = new Schema(
       required: true,
       trim: true,
     },
+    type: {
+      type: String,
+      enum: ["CHECKLIST", "TRACKABLE"],
+      required: true,
+    },
     status: {
       type: String,
       enum: ["todo", "in-progress", "done"],

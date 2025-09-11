@@ -1,5 +1,3 @@
-// client/src/pages/Login.jsx
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import useAuth from "@/hooks/useAuth";
@@ -44,7 +42,7 @@ const Login = () => {
     setLoading(true);
     try {
       await login({ email, password });
-      navigate("/tracker");
+      navigate("/dashboard");
     } catch (err) {
       setError(
         err.response?.data?.message || "An error occurred during login."

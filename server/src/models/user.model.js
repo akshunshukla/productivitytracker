@@ -53,12 +53,14 @@ const userSchema = new Schema(
     aiInsights: {
       topPerformingTags: [String],
       improvementAreaTags: [String],
-      peakProductiveTime: {
-        type: String,
-      },
-      habitAnalysis: {
-        type: String,
-      },
+      peakProductiveTime: String,
+
+      keyStrengths: [String],
+      keyOpportunities: [String],
+      coreInsight: String,
+      actionableSuggestion: String,
+
+      lastAnalyzed: Date,
     },
   },
   {

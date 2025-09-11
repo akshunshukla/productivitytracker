@@ -1,10 +1,10 @@
+// client/src/pages/Analytics.jsx
+
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import DashboardLayout from "@/components/DashboardLayout";
+import api from "@/api/axios";
+import { toast } from "sonner";
 import {
-  AreaChart,
-  Area,
   BarChart,
   Bar,
   XAxis,
@@ -12,15 +12,14 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  AreaChart,
+  Area,
 } from "recharts";
-import api from "@/api/axios";
-import { toast } from "sonner";
-
-import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 
 const formatMsToHours = (ms) => {
-  if (!ms) return 0;
+  if (!ms) return "0.0";
   return (ms / (1000 * 60 * 60)).toFixed(1);
 };
 
@@ -50,7 +49,6 @@ const Analytics = () => {
             name: new Date(d.date).toLocaleDateString("en-US", {
               weekday: "short",
             }),
-
             minutes: Math.round(d.totalDuration / 60000),
           }));
           setDailyData(formattedDailyData);
@@ -74,140 +72,138 @@ const Analytics = () => {
     fetchAnalytics();
   }, []);
 
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="p-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-lg">
+          <p className="label text-gray-900 dark:text-white">{`${label}`}</p>
+          <p className="intro text-gray-700 dark:text-gray-300">{`${payload[0].name}: ${payload[0].value} mins`}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   if (isLoading) {
     return (
-      <Layout>
-        <div className="text-center">Loading analytics...</div>
-      </Layout>
+      <DashboardLayout>
+        <div className="flex justify-center items-center h-full">
+          <Loader2 className="h-12 w-12 animate-spin text-gray-500" />
+        </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <Layout>
-      <div className="space-y-8">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            className="transition-transform hover:scale-110"
-            asChild
-          >
-            <Link to="/">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <h1 className="text-3xl font-bold">Performance Overview</h1>
-        </div>
+    <DashboardLayout>
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
+        Performance Overview
+      </h1>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="bg-gray-800 border-gray-700 animate-fade-in-up transition-transform hover:scale-105">
-            <CardHeader>
-              <CardTitle>Total Hours This Week</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {formatMsToHours(summary?.totalDuration)}h
-              </div>
-            </CardContent>
-          </Card>
-          <Card
-            className="bg-gray-800 border-gray-700 animate-fade-in-up transition-transform hover:scale-105"
-            style={{ animationDelay: "0.1s" }}
-          >
-            <CardHeader>
-              <CardTitle>Total Sessions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {summary?.totalSessions || 0}
-              </div>
-            </CardContent>
-          </Card>
-          <Card
-            className="bg-gray-800 border-gray-700 animate-fade-in-up transition-transform hover:scale-105"
-            style={{ animationDelay: "0.2s" }}
-          >
-            <CardHeader>
-              <CardTitle>Most Focused Tag</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {summary?.mostUsedTag || "N/A"}
-              </div>
-            </CardContent>
-          </Card>
-          <Card
-            className="bg-gray-800 border-gray-700 animate-fade-in-up transition-transform hover:scale-105"
-            style={{ animationDelay: "0.3s" }}
-          >
-            <CardHeader>
-              <CardTitle>Current Streak</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {streakData?.currentStreak || 0} days
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid gap-8 md:grid-cols-2">
-          <Card
-            className="bg-gray-800 border-gray-700 animate-fade-in-up transition-transform hover:scale-105"
-            style={{ animationDelay: "0.4s" }}
-          >
-            <CardHeader>
-              <CardTitle>Study Consistency (Last 7 Days)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={dailyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
-                  <XAxis dataKey="name" stroke="#A0AEC0" />
-                  <YAxis unit="m" stroke="#A0AEC0" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#2D3748",
-                      border: "none",
-                    }}
-                  />
-                  <Bar dataKey="minutes" fill="#4299E1" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-          <Card
-            className="bg-gray-800 border-gray-700 animate-fade-in-up transition-transform hover:scale-105"
-            style={{ animationDelay: "0.5s" }}
-          >
-            <CardHeader>
-              <CardTitle>Sessions Breakdown (by Tag)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={tagData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
-                  <XAxis dataKey="name" stroke="#A0AEC0" />
-                  <YAxis unit="m" stroke="#A0AEC0" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#2D3748",
-                      border: "none",
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="duration"
-                    stroke="#38B2AC"
-                    fill="#38B2AC"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
+      {/* Summary Cards */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+        <Card className="bg-white dark:bg-gray-800/50">
+          <CardHeader>
+            <CardTitle>Total Hours This Week</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">
+              {formatMsToHours(summary?.totalDuration)}h
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white dark:bg-gray-800/50">
+          <CardHeader>
+            <CardTitle>Total Sessions This Week</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">
+              {summary?.totalSessions || 0}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white dark:bg-gray-800/50">
+          <CardHeader>
+            <CardTitle>Most Focused Tag</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">
+              {summary?.mostUsedTag || "N/A"}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white dark:bg-gray-800/50">
+          <CardHeader>
+            <CardTitle>Current Streak</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">
+              {streakData?.currentStreak || 0} days
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    </Layout>
+
+      {/* Charts */}
+      <div className="grid gap-8 md:grid-cols-2">
+        <Card className="bg-white dark:bg-gray-800/50">
+          <CardHeader>
+            <CardTitle>Study Consistency (Last 7 Days)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={dailyData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="hsl(var(--muted))"
+                />
+                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
+                <YAxis unit="m" stroke="hsl(var(--muted-foreground))" />
+                <Tooltip
+                  content={<CustomTooltip />}
+                  cursor={{ fill: "rgba(128, 128, 128, 0.1)" }}
+                />
+                <Bar
+                  dataKey="minutes"
+                  name="Minutes"
+                  fill="hsl(var(--foreground))"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        <Card className="bg-white dark:bg-gray-800/50">
+          <CardHeader>
+            <CardTitle>Session Breakdown (by Tag)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={tagData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="hsl(var(--muted))"
+                />
+                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
+                <YAxis unit="m" stroke="hsl(var(--muted-foreground))" />
+                <Tooltip
+                  content={<CustomTooltip />}
+                  cursor={{ fill: "rgba(128, 128, 128, 0.1)" }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="duration"
+                  name="Duration"
+                  stroke="hsl(var(--foreground))"
+                  fill="hsl(var(--foreground))"
+                  fillOpacity={0.2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+    </DashboardLayout>
   );
 };
 
