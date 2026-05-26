@@ -4,9 +4,9 @@ import { Session } from "../models/session.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import mongoose from "mongoose";
 
+// Get current week date range
 const getWeekRange = () => {
   const now = new Date();
-
   const day = now.getUTCDay();
   const diffToMonday = day === 0 ? 6 : day - 1;
 
@@ -19,19 +19,20 @@ const getWeekRange = () => {
 
   const toISODateString = (date) => date.toISOString().split("T")[0];
 
-  const startStr = toISODateString(start);
-  const endStr = toISODateString(end);
-
-  return { startStr, endStr };
+  return {
+    startStr: toISODateString(start),
+    endStr: toISODateString(end),
+  };
 };
 
+// Get weekly summary
 const getWeeklySummary = asyncHandler(async (req, res) => {
   const { startStr, endStr } = getWeekRange();
 
   const sessions = await Session.aggregate([
     {
       $match: {
-        userId: new mongoose.Types.ObjectId(req.user?._id),
+        userId: new mongoose.Types.ObjectId(req.user._id),
         date: { $gte: startStr, $lt: endStr },
         status: "completed",
       },
@@ -45,6 +46,7 @@ const getWeeklySummary = asyncHandler(async (req, res) => {
       },
     },
   ]);
+
   let totalDuration = 0;
   let totalSessions = 0;
   let tagFrequency = {};
@@ -69,27 +71,27 @@ const getWeeklySummary = asyncHandler(async (req, res) => {
       200,
       {
         totalDuration,
+        totalHours: parseFloat((totalDuration / (1000 * 60 * 60)).toFixed(1)),
         totalSessions,
         activeDays,
         avgSessionDuration,
         mostUsedTag,
       },
-      "Weekly summary fetched successfully"
+      "Weekly summary fetched successfully."
     )
   );
 });
 
+// Get daily breakdown
 const getDailyBreakdown = asyncHandler(async (req, res) => {
-  const user = req.user;
-  if (!user) throw new ApiError(401, "Unauthorized");
-
   const { startStr, endStr } = getWeekRange();
 
   const dailyStats = await Session.aggregate([
     {
       $match: {
-        userId: new mongoose.Types.ObjectId(user._id),
+        userId: new mongoose.Types.ObjectId(req.user._id),
         date: { $gte: startStr, $lt: endStr },
+        status: "completed",
       },
     },
     {
@@ -104,141 +106,89 @@ const getDailyBreakdown = asyncHandler(async (req, res) => {
         _id: 0,
         date: "$_id",
         totalDuration: 1,
+        totalHours: {
+          $round: [{ $divide: ["$totalDuration", 3600000] }, 1],
+        },
         sessionCount: 1,
       },
     },
-    {
-      $sort: { date: 1 },
-    },
+    { $sort: { date: 1 } },
   ]);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, dailyStats, "Daily breakdown fetched"));
+    .json(new ApiResponse(200, dailyStats, "Daily breakdown fetched successfully."));
 });
 
+// Get tag stats
 const getTagWiseStats = asyncHandler(async (req, res) => {
-  const user = req.user;
-  if (!user) {
-    throw new ApiError(401, "Unauthorized");
-  }
-
-  const { startStr, endStr } = getWeekRange();
-
   const tagStats = await Session.aggregate([
     {
       $match: {
-        userId: new mongoose.Types.ObjectId(user._id),
-        date: {
-          $gte: startStr,
-          $lt: endStr,
-        },
+        userId: new mongoose.Types.ObjectId(req.user._id),
+        status: "completed",
       },
     },
-    {
-      $unwind: "$tags",
-    },
+    { $unwind: "$tags" },
     {
       $group: {
         _id: "$tags",
         totalDuration: { $sum: "$duration" },
+        totalHours: {
+          $sum: { $divide: ["$duration", 3600000] },
+        },
         count: { $sum: 1 },
       },
     },
     {
-      $sort: { totalDuration: -1 },
+      $project: {
+        _id: 1,
+        totalDuration: 1,
+        totalHours: { $round: ["$totalHours", 1] },
+        count: 1,
+      },
     },
+    { $sort: { totalDuration: -1 } },
   ]);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, tagStats, "Tag-wise session stats"));
+    .json(new ApiResponse(200, tagStats, "Tag-wise stats fetched successfully."));
 });
 
-const getStreakInfo = asyncHandler(async (req, res) => {
-  const user = req.user;
-  if (!user) throw new ApiError(401, "Unauthorized");
-
-  const sessions = await Session.find(
-    { userId: new mongoose.Types.ObjectId(user._id) },
-    { date: 1, _id: 0 }
-  );
-
-  if (!sessions || sessions.length === 0) {
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          { currentStreak: 0, lastActive: null },
-          "No sessions found"
-        )
-      );
-  }
-
-  const uniqueDates = [...new Set(sessions.map((s) => s.date))].sort(
-    (a, b) => new Date(b) - new Date(a)
-  );
-
-  let currentStreak = 0;
-  let lastActive = uniqueDates[0];
-  let expectedDate = new Date();
-
-  for (const dateStr of uniqueDates) {
-    const date = new Date(dateStr);
-    const expectedStr = expectedDate.toISOString().split("T")[0];
-
-    if (dateStr === expectedStr) {
-      currentStreak++;
-      expectedDate.setDate(expectedDate.getDate() - 1);
-    } else {
-      break;
-    }
-  }
-
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      {
-        currentStreak,
-        lastActive,
-      },
-      "Streak info fetched successfully"
-    )
-  );
-});
-
+// Get all user tags
 const getUserTags = asyncHandler(async (req, res) => {
-  const user = req.user;
   const tags = await Session.distinct("tags", {
-    userId: new mongoose.Types.ObjectId(user._id),
+    userId: new mongoose.Types.ObjectId(req.user._id),
   });
-  return res.status(200).json(new ApiResponse(200, tags, "Fetched all tags"));
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, tags, "User tags fetched successfully."));
 });
 
+// Get last five sessions
 const getLastFiveSessions = asyncHandler(async (req, res) => {
   const sessions = await Session.find({
     userId: req.user._id,
     status: "completed",
   })
-    .sort({ createdAt: -1 }) // Sort by most recent
-    .limit(5); // Get only 5
+    .sort({ createdAt: -1 })
+    .limit(5);
 
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, sessions, "Last 5 sessions fetched successfully")
-    );
+    .json(new ApiResponse(200, sessions, "Recent sessions fetched successfully."));
 });
 
+// Get today's summary
 const getTodaysSummary = asyncHandler(async (req, res) => {
-  const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = new Date().toISOString().split("T")[0];
 
   const result = await Session.aggregate([
     {
       $match: {
-        userId: new mongoose.Types.ObjectId(req.user?._id),
+        userId: new mongoose.Types.ObjectId(req.user._id),
         date: todayStr,
         status: "completed",
       },
@@ -247,28 +197,31 @@ const getTodaysSummary = asyncHandler(async (req, res) => {
       $group: {
         _id: null,
         totalDuration: { $sum: "$duration" },
+        sessionCount: { $sum: 1 },
       },
     },
   ]);
 
   const todaysTotal = result[0]?.totalDuration || 0;
+  const sessionCount = result[0]?.sessionCount || 0;
 
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        { totalDuration: todaysTotal },
-        "Today's summary fetched"
-      )
-    );
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        totalDuration: todaysTotal,
+        totalHours: parseFloat((todaysTotal / (1000 * 60 * 60)).toFixed(1)),
+        sessionCount,
+      },
+      "Today's summary fetched successfully."
+    )
+  );
 });
 
 export {
   getWeeklySummary,
   getDailyBreakdown,
   getTagWiseStats,
-  getStreakInfo,
   getUserTags,
   getLastFiveSessions,
   getTodaysSummary,

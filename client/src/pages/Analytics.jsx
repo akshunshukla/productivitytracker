@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import DashboardLayout from "@/components/DashboardLayout";
+import api from "@/api/axios";
+import { toast } from "sonner";
 import {
-  AreaChart,
-  Area,
   BarChart,
   Bar,
   XAxis,
@@ -12,60 +10,73 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
-import api from "@/api/axios";
-import { toast } from "sonner";
-
-import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Clock, TrendingUp, Tag, Loader2 } from "lucide-react";
 
-const formatMsToHours = (ms) => {
-  if (!ms) return 0;
-  return (ms / (1000 * 60 * 60)).toFixed(1);
+const CHART_COLORS = [
+  "oklch(0.72 0.15 220)",  // sky blue (primary)
+  "oklch(0.78 0.15 80)",   // amber
+  "oklch(0.68 0.12 200)",  // teal
+  "oklch(0.7 0.18 350)",   // rose
+  "oklch(0.65 0.13 160)",  // green
+  "oklch(0.6 0.15 280)",   // indigo
+];
+
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="p-3 bg-card border border-border rounded-lg shadow-xl text-sm">
+        <p className="font-medium text-foreground">{label}</p>
+        <p className="text-muted-foreground">
+          {payload[0].value} {payload[0].name === "hours" ? "hours" : "h"}
+        </p>
+      </div>
+    );
+  }
+  return null;
 };
 
 const Analytics = () => {
   const [summary, setSummary] = useState(null);
   const [dailyData, setDailyData] = useState([]);
   const [tagData, setTagData] = useState([]);
-  const [streakData, setStreakData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
       setIsLoading(true);
       try {
-        const [summaryRes, dailyRes, tagsRes, streakRes] = await Promise.all([
+        const [summaryRes, dailyRes, tagsRes] = await Promise.all([
           api.get("/analytics/weeklySummary"),
           api.get("/analytics/dailyBreakdown"),
           api.get("/analytics/tagWiseStats"),
-          api.get("/analytics/streak"),
         ]);
 
         setSummary(summaryRes.data.data);
-        setStreakData(streakRes.data.data);
 
         if (dailyRes.data.data) {
-          const formattedDailyData = dailyRes.data.data.map((d) => ({
+          const formatted = dailyRes.data.data.map((d) => ({
             name: new Date(d.date).toLocaleDateString("en-US", {
               weekday: "short",
             }),
-
-            minutes: Math.round(d.totalDuration / 60000),
+            hours: d.totalHours || parseFloat((d.totalDuration / 3600000).toFixed(1)),
           }));
-          setDailyData(formattedDailyData);
+          setDailyData(formatted);
         }
 
         if (tagsRes.data.data) {
-          const formattedTagData = tagsRes.data.data.map((t) => ({
+          const formatted = tagsRes.data.data.map((t) => ({
             name: t._id,
-            duration: Math.round(t.totalDuration / 60000),
+            hours: t.totalHours || parseFloat((t.totalDuration / 3600000).toFixed(1)),
           }));
-          setTagData(formattedTagData);
+          setTagData(formatted);
         }
       } catch (error) {
         toast.error("Failed to load analytics data.");
-        console.error(error);
       } finally {
         setIsLoading(false);
       }
@@ -76,138 +87,184 @@ const Analytics = () => {
 
   if (isLoading) {
     return (
-      <Layout>
-        <div className="text-center">Loading analytics...</div>
-      </Layout>
+      <DashboardLayout>
+        <div className="flex justify-center items-center h-96">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <Layout>
-      <div className="space-y-8">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            className="transition-transform hover:scale-110"
-            asChild
-          >
-            <Link to="/">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <h1 className="text-3xl font-bold">Performance Overview</h1>
-        </div>
+    <DashboardLayout>
+      <div className="animate-fade-in">
+        <h1 className="text-2xl font-bold mb-6">Analytics</h1>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="bg-gray-800 border-gray-700 animate-fade-in-up transition-transform hover:scale-105">
-            <CardHeader>
-              <CardTitle>Total Hours This Week</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {formatMsToHours(summary?.totalDuration)}h
+        {/* Summary Cards */}
+        <div className="grid gap-4 md:grid-cols-3 mb-8">
+          <Card>
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Total Hours This Week
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {summary?.totalHours || "0"}h
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
-          <Card
-            className="bg-gray-800 border-gray-700 animate-fade-in-up transition-transform hover:scale-105"
-            style={{ animationDelay: "0.1s" }}
-          >
-            <CardHeader>
-              <CardTitle>Total Sessions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {summary?.totalSessions || 0}
+
+          <Card>
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-chart-2/10 text-chart-2">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Sessions This Week
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {summary?.totalSessions || 0}
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
-          <Card
-            className="bg-gray-800 border-gray-700 animate-fade-in-up transition-transform hover:scale-105"
-            style={{ animationDelay: "0.2s" }}
-          >
-            <CardHeader>
-              <CardTitle>Most Focused Tag</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {summary?.mostUsedTag || "N/A"}
-              </div>
-            </CardContent>
-          </Card>
-          <Card
-            className="bg-gray-800 border-gray-700 animate-fade-in-up transition-transform hover:scale-105"
-            style={{ animationDelay: "0.3s" }}
-          >
-            <CardHeader>
-              <CardTitle>Current Streak</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {streakData?.currentStreak || 0} days
+
+          <Card>
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-chart-3/10 text-chart-3">
+                  <Tag className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Most Focused Tag
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {summary?.mostUsedTag || "N/A"}
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid gap-8 md:grid-cols-2">
-          <Card
-            className="bg-gray-800 border-gray-700 animate-fade-in-up transition-transform hover:scale-105"
-            style={{ animationDelay: "0.4s" }}
-          >
+        {/* Charts */}
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Daily Bar Chart */}
+          <Card>
             <CardHeader>
-              <CardTitle>Study Consistency (Last 7 Days)</CardTitle>
+              <CardTitle className="text-base">Hours Per Day (This Week)</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={dailyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
-                  <XAxis dataKey="name" stroke="#A0AEC0" />
-                  <YAxis unit="m" stroke="#A0AEC0" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#2D3748",
-                      border: "none",
-                    }}
-                  />
-                  <Bar dataKey="minutes" fill="#4299E1" />
-                </BarChart>
-              </ResponsiveContainer>
+              {dailyData.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-12">
+                  No session data for this week yet.
+                </p>
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={dailyData}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="oklch(0.25 0.005 260)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="name"
+                      stroke="oklch(0.6 0.01 260)"
+                      fontSize={12}
+                    />
+                    <YAxis
+                      unit="h"
+                      stroke="oklch(0.6 0.01 260)"
+                      fontSize={12}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar
+                      dataKey="hours"
+                      name="hours"
+                      fill="oklch(0.72 0.15 220)"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
-          <Card
-            className="bg-gray-800 border-gray-700 animate-fade-in-up transition-transform hover:scale-105"
-            style={{ animationDelay: "0.5s" }}
-          >
+
+          {/* Tag Pie Chart */}
+          <Card>
             <CardHeader>
-              <CardTitle>Sessions Breakdown (by Tag)</CardTitle>
+              <CardTitle className="text-base">Hours By Tag (All Time)</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={tagData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
-                  <XAxis dataKey="name" stroke="#A0AEC0" />
-                  <YAxis unit="m" stroke="#A0AEC0" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#2D3748",
-                      border: "none",
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="duration"
-                    stroke="#38B2AC"
-                    fill="#38B2AC"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              {tagData.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-12">
+                  No tag data available yet.
+                </p>
+              ) : (
+                <div className="flex flex-col items-center">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie
+                        data={tagData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={90}
+                        dataKey="hours"
+                        nameKey="name"
+                        strokeWidth={2}
+                        stroke="oklch(0.13 0.005 260)"
+                      >
+                        {tagData.map((_, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={CHART_COLORS[index % CHART_COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Legend */}
+                  <div className="flex flex-wrap gap-3 mt-2 justify-center">
+                    {tagData.map((tag, index) => (
+                      <div
+                        key={tag.name}
+                        className="flex items-center gap-1.5 text-xs"
+                      >
+                        <div
+                          className="w-2.5 h-2.5 rounded-full"
+                          style={{
+                            backgroundColor:
+                              CHART_COLORS[index % CHART_COLORS.length],
+                          }}
+                        />
+                        <span className="text-muted-foreground">
+                          {tag.name}{" "}
+                          <span className="text-foreground font-medium">
+                            {tag.hours}h
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
-    </Layout>
+    </DashboardLayout>
   );
 };
 

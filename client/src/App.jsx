@@ -1,8 +1,10 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
-import Tracker from "./pages/Tracker";
+import Dashboard from "./pages/Dashboard";
 import Analytics from "./pages/Analytics";
+import GoalsPage from "./pages/Goals";
+import InsightsPage from "./pages/Insights";
 import ProtectedRoute from "./ProtectedRoute";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -13,11 +15,14 @@ function App() {
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
 
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<Tracker />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/goals" element={<GoalsPage />} />
+          <Route path="/insights" element={<InsightsPage />} />
         </Route>
       </Routes>
       <Toaster richColors />
