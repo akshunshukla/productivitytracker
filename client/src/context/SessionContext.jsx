@@ -7,8 +7,8 @@ const SessionContext = createContext(null);
 export const SessionProvider = ({ children }) => {
   const [currentSession, setCurrentSession] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-
   const [needsGoalRefresh, setNeedsGoalRefresh] = useState(false);
+  const [sessionUpdated, setSessionUpdated] = useState(0);
 
   useEffect(() => {
     const fetchCurrentSession = async () => {
@@ -17,7 +17,7 @@ export const SessionProvider = ({ children }) => {
         const response = await api.get("/session/current");
         setCurrentSession(response.data.data);
       } catch (error) {
-        console.error("No active session found.", error);
+        setCurrentSession(null);
       } finally {
         setIsLoading(false);
       }
@@ -25,44 +25,43 @@ export const SessionProvider = ({ children }) => {
     fetchCurrentSession();
   }, []);
 
-  const startSession = async ({ taskId, goalId, tags }) => {
+  const startSession = async ({ tag }) => {
     if (currentSession) {
       toast.error("Another session is already active.");
       return;
     }
     try {
-      const response = await api.post("/session/start", {
-        taskId,
-        goalId,
-        tags,
-      });
+      const response = await api.post("/session/startSession", { tag });
       setCurrentSession(response.data.data);
-      toast.success(`Session started for: ${tags.join(", ")}`);
+      toast.success(`Session started for "${tag}"`);
     } catch (error) {
-      toast.error("Failed to start session.");
-      console.error(error);
+      toast.error(error.response?.data?.message || "Failed to start session.");
     }
   };
 
   const pauseSession = async () => {
     if (!currentSession) return;
     try {
-      const response = await api.patch(`/session/pause/${currentSession._id}`);
+      const response = await api.patch(
+        `/session/pauseSession/${currentSession._id}`
+      );
       setCurrentSession(response.data.data);
       toast.info("Session paused.");
     } catch (error) {
-      toast.error("Failed to pause session.");
+      toast.error(error.response?.data?.message || "Failed to pause session.");
     }
   };
 
   const resumeSession = async () => {
     if (!currentSession) return;
     try {
-      const response = await api.patch(`/session/resume/${currentSession._id}`);
+      const response = await api.patch(
+        `/session/resumeSession/${currentSession._id}`
+      );
       setCurrentSession(response.data.data);
       toast.success("Session resumed.");
     } catch (error) {
-      toast.error("Failed to resume session.");
+      toast.error(error.response?.data?.message || "Failed to resume session.");
     }
   };
 
@@ -72,10 +71,20 @@ export const SessionProvider = ({ children }) => {
       await api.post(`/session/end/${currentSession._id}`, { rating, notes });
       toast.success("Session completed!");
       setCurrentSession(null);
-
       setNeedsGoalRefresh(true);
+      setSessionUpdated((prev) => prev + 1);
     } catch (error) {
-      toast.error("Failed to end session.");
+      toast.error(error.response?.data?.message || "Failed to end session.");
+    }
+  };
+
+  const deleteSession = async (sessionId) => {
+    try {
+      await api.delete(`/session/delete/${sessionId}`);
+      toast.success("Session deleted.");
+      setSessionUpdated((prev) => prev + 1);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to delete session.");
     }
   };
 
@@ -86,8 +95,10 @@ export const SessionProvider = ({ children }) => {
     pauseSession,
     resumeSession,
     endSession,
+    deleteSession,
     needsGoalRefresh,
     setNeedsGoalRefresh,
+    sessionUpdated,
   };
 
   return (

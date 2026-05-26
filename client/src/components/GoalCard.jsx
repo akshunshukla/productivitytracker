@@ -1,15 +1,14 @@
-import { Edit, Trash2 } from "lucide-react";
-import { format } from "date-fns";
-
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardFooter,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { formatHoursMinutes, getDaysOverdue, formatDate } from "@/utils/helpers";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { MoreHorizontal, Pencil, Trash2, Clock, Calendar } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,103 +21,124 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-const formatDuration = (ms) => {
-  if (ms === undefined || ms === null) return "0h 0m";
-  const hours = Math.floor(ms / (1000 * 60 * 60));
-  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  return `${hours}h ${minutes}m`;
-};
-
 const GoalCard = ({ goal, onEdit, onDelete }) => {
+  const progressPct =
+    goal.targetDuration > 0
+      ? Math.min((goal.loggedDuration / goal.targetDuration) * 100, 100)
+      : 0;
+
+  const remainingMs = Math.max(goal.targetDuration - goal.loggedDuration, 0);
+  const daysOverdue = getDaysOverdue(goal.deadline);
+  const isCompleted = goal.status === "completed";
+
   return (
-    <Card className="bg-white dark:bg-gray-800/50 flex flex-col justify-between">
-      <CardHeader>
-        <CardTitle className="text-gray-900 dark:text-white flex justify-between items-center">
-          {goal.title}
-          <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
-            ({goal.period.charAt(0).toUpperCase() + goal.period.slice(1)})
-          </span>
-        </CardTitle>
-        {goal.description && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            {goal.description}
-          </p>
-        )}
-        <div className="flex flex-wrap gap-1 mt-2">
-          {goal.tags.map((tag, index) => (
-            <span
-              key={index}
-              className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full"
-            >
-              {tag}
+    <Card
+      className={`transition-all duration-200 hover:border-primary/30 ${
+        isCompleted ? "opacity-60" : ""
+      }`}
+    >
+      <CardContent className="pt-5 pb-5">
+        {/* Header */}
+        <div className="flex justify-between items-start mb-3">
+          <div className="min-w-0">
+            <h3 className="font-semibold text-sm truncate">{goal.title}</h3>
+            <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
+              {goal.tag}
             </span>
-          ))}
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onEdit(goal)}>
+                <Pencil className="w-3.5 h-3.5 mr-2" />
+                Edit
+              </DropdownMenuItem>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem
+                    onSelect={(e) => e.preventDefault()}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete "{goal.title}"?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete this goal and its progress.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onDelete(goal._id)}>
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="flex justify-between items-center text-sm text-gray-700 dark:text-gray-300">
-          <span>Progress:</span>
-          <span>
-            {formatDuration(goal.loggedDuration)} /{" "}
-            {formatDuration(goal.targetDuration)}
-          </span>
+
+        {/* Progress */}
+        <div className="mb-3">
+          <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+            <span>
+              {formatHoursMinutes(goal.loggedDuration)} /{" "}
+              {formatHoursMinutes(goal.targetDuration)}
+            </span>
+            <span>{Math.round(progressPct)}%</span>
+          </div>
+          <Progress value={progressPct} className="h-1.5" />
         </div>
-        <Progress
-          value={(goal.loggedDuration / goal.targetDuration) * 100 || 0}
-          className="w-full"
-        />
-        <div className="flex justify-between items-center text-sm text-gray-700 dark:text-gray-300">
-          <span>Status:</span>
+
+        {/* Meta */}
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {remainingMs > 0
+              ? `${formatHoursMinutes(remainingMs)} left`
+              : "Target reached!"}
+          </div>
+          {goal.deadline && (
+            <div
+              className={`flex items-center gap-1 ${
+                daysOverdue > 0 ? "text-destructive" : ""
+              }`}
+            >
+              <Calendar className="w-3 h-3" />
+              {daysOverdue > 0
+                ? `${daysOverdue}d overdue`
+                : formatDate(goal.deadline)}
+            </div>
+          )}
+        </div>
+
+        {/* Status Badge */}
+        <div className="mt-3">
           <span
-            className={`capitalize font-medium ${
-              goal.status === "completed"
-                ? "text-green-600"
+            className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium ${
+              isCompleted
+                ? "bg-chart-5/10 text-chart-5"
                 : goal.status === "in-progress"
-                ? "text-yellow-600"
-                : "text-gray-500"
+                ? "bg-chart-2/10 text-chart-2"
+                : "bg-secondary text-muted-foreground"
             }`}
           >
-            {goal.status.replace("-", " ")}
+            {goal.status === "not-started"
+              ? "Not Started"
+              : goal.status === "in-progress"
+              ? "In Progress"
+              : "Completed"}
           </span>
         </div>
-        {goal.deadline && (
-          <div className="flex justify-between items-center text-sm text-gray-700 dark:text-gray-300">
-            <span>Deadline:</span>
-            <span>{format(new Date(goal.deadline), "PPP")}</span>
-          </div>
-        )}
       </CardContent>
-      <CardFooter className="flex justify-end gap-2">
-        <Button variant="ghost" size="sm" onClick={() => onEdit(goal)}>
-          <Edit className="w-4 h-4" />
-        </Button>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-red-500 hover:text-red-600"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent className="bg-white dark:bg-gray-900">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete your
-                goal.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => onDelete(goal._id)}>
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </CardFooter>
     </Card>
   );
 };

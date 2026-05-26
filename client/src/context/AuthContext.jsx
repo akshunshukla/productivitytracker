@@ -22,9 +22,14 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (credentials) => {
-    const response = await api.post("/user/login", credentials);
-    setUser(response.data.data.user);
-    return response;
+    try {
+      const response = await api.post("/user/login", credentials);
+      setUser(response.data.data.user);
+      return response;
+    } catch (error) {
+      console.error("Login failed:", error);
+      throw error;
+    }
   };
 
   const signup = async (userData) => {

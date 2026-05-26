@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import api from "@/api/axios";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Lightbulb } from "lucide-react";
 
 const MotivationalQuote = () => {
@@ -31,8 +30,6 @@ const MotivationalQuote = () => {
           JSON.stringify({ date: today, quote: newQuote })
         );
       } catch (error) {
-        console.error("Failed to fetch daily quote:", error);
-
         setQuote({
           text: "The secret of getting ahead is getting started.",
           author: "Mark Twain",
@@ -46,30 +43,17 @@ const MotivationalQuote = () => {
   }, []);
 
   return (
-    <Card className="bg-white dark:bg-gray-800/50">
-      <CardHeader>
-        <CardTitle className="flex items-center text-gray-900 dark:text-white">
-          <Lightbulb className="w-5 h-5 mr-3 text-yellow-400" />
-          Today's Focus
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <p className="text-gray-500 dark:text-gray-400">
-            Fetching inspiration...
-          </p>
-        ) : (
-          <div>
-            <p className="italic text-gray-800 dark:text-gray-200">
-              "{quote.text}"
-            </p>
-            <p className="text-right text-sm text-gray-500 dark:text-gray-400 mt-2">
-              - {quote.author}
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-border h-full">
+      <Lightbulb className="w-4 h-4 text-chart-2 shrink-0" />
+      {isLoading ? (
+        <p className="text-xs text-muted-foreground">Finding inspiration...</p>
+      ) : (
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          <span className="italic text-foreground/80">"{quote.text}"</span>
+          <span className="ml-1.5">— {quote.author}</span>
+        </p>
+      )}
+    </div>
   );
 };
 

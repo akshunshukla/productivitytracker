@@ -1,183 +1,130 @@
 import { useState } from "react";
-import { PlusCircle, Calendar as CalendarIcon } from "lucide-react";
-import { toast } from "sonner";
-import { format } from "date-fns";
 import api from "@/api/axios";
-import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogClose,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 
-const CreateGoalDialog = ({ onGoalCreated }) => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+const CreateGoalDialog = ({ children, onGoalCreated }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [tag, setTag] = useState("");
+  const [targetHours, setTargetHours] = useState("");
+  const [description, setDescription] = useState("");
+  const [deadline, setDeadline] = useState("");
 
-  const [newGoalTitle, setNewGoalTitle] = useState("");
-  const [newGoalDescription, setNewGoalDescription] = useState("");
-  const [newGoalTags, setNewGoalTags] = useState("");
-  const [newGoalPeriod, setNewGoalPeriod] = useState("weekly");
-  const [newGoalTarget, setNewGoalTarget] = useState(""); // In hours
-  const [newGoalDeadline, setNewGoalDeadline] = useState(null);
+  const resetForm = () => {
+    setTitle("");
+    setTag("");
+    setTargetHours("");
+    setDescription("");
+    setDeadline("");
+  };
 
-  const handleCreateGoal = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const targetDurationMs = parseFloat(newGoalTarget) * 60 * 60 * 1000;
-
-    if (!newGoalTitle || !newGoalTags || !newGoalPeriod || !newGoalTarget) {
-      toast.error(
-        "Please fill out all required fields (Title, Tags, Period, Target)."
-      );
+    if (!title || !tag || !targetHours) {
+      toast.error("Title, tag, and target hours are required.");
       return;
     }
 
+    const targetDurationMs = parseFloat(targetHours) * 60 * 60 * 1000;
+
     try {
       const response = await api.post("/goal", {
-        title: newGoalTitle,
-        description: newGoalDescription,
-        tags: newGoalTags.split(",").map((tag) => tag.trim()),
-        period: newGoalPeriod,
+        title,
+        tag: tag.trim(),
         targetDuration: targetDurationMs,
-        deadline: newGoalDeadline,
+        description,
+        deadline: deadline || null,
       });
 
-      onGoalCreated(response.data.data);
       toast.success("Goal created successfully!");
-      setIsDialogOpen(false);
-
-      // Reset form
-      setNewGoalTitle("");
-      setNewGoalDescription("");
-      setNewGoalTags("");
-      setNewGoalPeriod("weekly");
-      setNewGoalTarget("");
-      setNewGoalDeadline(null);
+      onGoalCreated?.(response.data.data);
+      setIsOpen(false);
+      resetForm();
     } catch (error) {
-      toast.error("Failed to create goal.");
-      console.error(error);
+      toast.error(error.response?.data?.message || "Failed to create goal.");
     }
   };
 
   return (
-    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline">
-          <PlusCircle className="w-4 h-4 mr-2" />
-          New Goal
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="bg-white dark:bg-gray-900">
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Create a New Goal</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleCreateGoal} className="space-y-4 py-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="newTitle">Title</Label>
+            <Label htmlFor="goal-title">Goal Title</Label>
             <Input
-              id="newTitle"
-              value={newGoalTitle}
-              onChange={(e) => setNewGoalTitle(e.target.value)}
-              placeholder="e.g., Learn React"
+              id="goal-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g., Master React Hooks"
+              className="bg-secondary mt-1"
               required
             />
           </div>
           <div>
-            <Label htmlFor="newDescription">Description (Optional)</Label>
-            <Textarea
-              id="newDescription"
-              value={newGoalDescription}
-              onChange={(e) => setNewGoalDescription(e.target.value)}
-              placeholder="A brief description of your goal."
-            />
-          </div>
-          <div>
-            <Label htmlFor="newTags">Tags (comma-separated)</Label>
+            <Label htmlFor="goal-tag">Tag</Label>
             <Input
-              id="newTags"
-              value={newGoalTags}
-              onChange={(e) => setNewGoalTags(e.target.value)}
-              placeholder="e.g., Coding, Study"
+              id="goal-tag"
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
+              placeholder="e.g., react"
+              className="bg-secondary mt-1"
               required
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              Sessions with this tag will auto-count towards this goal.
+            </p>
           </div>
           <div>
-            <Label htmlFor="newPeriod">Period</Label>
-            <Select
-              value={newGoalPeriod}
-              onValueChange={setNewGoalPeriod}
-              required
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="newTarget">Target Duration (hours)</Label>
+            <Label htmlFor="goal-target">Target Hours</Label>
             <Input
-              id="newTarget"
+              id="goal-target"
               type="number"
               step="0.5"
-              value={newGoalTarget}
-              onChange={(e) => setNewGoalTarget(e.target.value)}
-              placeholder="e.g., 10"
+              min="0.5"
+              value={targetHours}
+              onChange={(e) => setTargetHours(e.target.value)}
+              placeholder="e.g., 40"
+              className="bg-secondary mt-1"
               required
             />
           </div>
           <div>
-            <Label htmlFor="newDeadline">Deadline (Optional)</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !newGoalDeadline && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {newGoalDeadline ? (
-                    format(newGoalDeadline, "PPP")
-                  ) : (
-                    <span>Pick a deadline</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-white dark:bg-gray-900">
-                <Calendar
-                  mode="single"
-                  selected={newGoalDeadline}
-                  onSelect={setNewGoalDeadline}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+            <Label htmlFor="goal-deadline">Deadline (optional)</Label>
+            <Input
+              id="goal-deadline"
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              className="bg-secondary mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="goal-description">Description (optional)</Label>
+            <Textarea
+              id="goal-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What do you want to achieve?"
+              className="bg-secondary mt-1"
+            />
           </div>
           <DialogFooter>
             <DialogClose asChild>
