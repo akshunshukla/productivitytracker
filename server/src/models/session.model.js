@@ -12,11 +12,6 @@ const sessionSchema = new Schema(
       ref: "Goal",
       default: null,
     },
-    taskId: {
-      type: Schema.Types.ObjectId,
-      ref: "Task",
-      default: null,
-    },
     intervals: [
       {
         startTime: Date,

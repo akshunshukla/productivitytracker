@@ -17,17 +17,15 @@ const goalSchema = new Schema(
       type: String,
       trim: true,
     },
-    tags: {
-      type: [String],
-      required: true,
-    },
-    period: {
+    tag: {
       type: String,
-      enum: ["daily", "weekly"],
       required: true,
+      trim: true,
+      lowercase: true,
     },
     targetDuration: {
       type: Number,
+      required: true,
       default: 0,
     },
     loggedDuration: {
@@ -39,7 +37,7 @@ const goalSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ["not-started", "in=progress", "completed"],
+      enum: ["not-started", "in-progress", "completed"],
       default: "not-started",
     },
   },

@@ -8,25 +8,14 @@ const taskSchema = new Schema(
       required: true,
       index: true,
     },
-    goalId: {
-      type: Schema.Types.ObjectId,
-      ref: "Goal",
-      default: null,
-    },
     title: {
       type: String,
       required: true,
       trim: true,
     },
-    type: {
-      type: String,
-      enum: ["CHECKLIST", "TRACKABLE"],
-      required: true,
-    },
-    status: {
-      type: String,
-      enum: ["todo", "in-progress", "done"],
-      default: "todo",
+    completed: {
+      type: Boolean,
+      default: false,
     },
     date: {
       type: String,

@@ -4,9 +4,6 @@ import bcrypt from "bcryptjs";
 
 const userSchema = new Schema(
   {
-    googleId: {
-      type: String,
-    },
     username: {
       type: String,
       required: true,
@@ -32,34 +29,46 @@ const userSchema = new Schema(
     },
     password: {
       type: String,
-      required: function () {
-        return !this.googleId;
-      },
+      required: true,
     },
     avatar: {
       type: String,
-    },
-    currentStreak: {
-      type: Number,
-      default: 0,
-    },
-    lastActiveDate: {
-      type: Date,
-      default: null,
     },
     refreshToken: {
       type: String,
     },
     aiInsights: {
-      topPerformingTags: [String],
-      improvementAreaTags: [String],
-      peakProductiveTime: String,
-
-      keyStrengths: [String],
-      keyOpportunities: [String],
-      coreInsight: String,
-      actionableSuggestion: String,
-
+      timeDistribution: {
+        summary: String,
+        insights: [String],
+      },
+      productivityPatterns: {
+        summary: String,
+        peakDay: String,
+        peakTime: String,
+        insights: [String],
+      },
+      focusQuality: {
+        summary: String,
+        avgRating: Number,
+        bestTag: String,
+        worstTag: String,
+        insights: [String],
+      },
+      goalProgress: {
+        summary: String,
+        insights: [String],
+      },
+      recommendations: [
+        {
+          title: String,
+          description: String,
+          priority: {
+            type: String,
+            enum: ["high", "medium", "low"],
+          },
+        },
+      ],
       lastAnalyzed: Date,
     },
   },
@@ -78,7 +87,7 @@ userSchema.methods.isPasswordCorrect = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
 
-userSchema.methods.generateAccessToken = function (password) {
+userSchema.methods.generateAccessToken = function () {
   return jwt.sign(
     {
       _id: this._id,
@@ -92,7 +101,8 @@ userSchema.methods.generateAccessToken = function (password) {
     }
   );
 };
-userSchema.methods.generateRefreshToken = function (password) {
+
+userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(
     {
       _id: this._id,
