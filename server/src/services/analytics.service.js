@@ -1,11 +1,14 @@
 import { Session } from "../models/session.model.js";
+import { Goal } from "../models/goal.model.js";
 import { User } from "../models/user.model.js";
 import mongoose from "mongoose";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Analyze day of week performance
 const analyzeDayOfWeekPerformance = async (userId) => {
-  const dayOfWeekData = await Session.aggregate([
+  const data = await Session.aggregate([
     {
       $match: {
         userId: new mongoose.Types.ObjectId(userId),
@@ -15,38 +18,33 @@ const analyzeDayOfWeekPerformance = async (userId) => {
     },
     {
       $project: {
-        dayOfWeek: { $dayOfWeek: { $toDate: "$createdAt" } }, // 1:Sun, 2:Mon, ...
+        dayOfWeek: { $dayOfWeek: { $toDate: "$createdAt" } },
         rating: "$rating",
+        duration: "$duration",
       },
     },
     {
       $group: {
         _id: "$dayOfWeek",
         avgRating: { $avg: "$rating" },
+        totalDuration: { $sum: "$duration" },
         count: { $sum: 1 },
       },
     },
     { $sort: { _id: 1 } },
   ]);
 
-  const days = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
-  return dayOfWeekData
-    .map(
-      (d) =>
-        `${days[d._id - 1]}: Avg Rating ${d.avgRating.toFixed(2)} (${d.count} sessions)`
-    )
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  return data
+    .map((d) => {
+      const hours = (d.totalDuration / 3600000).toFixed(1);
+      return `${days[d._id - 1]}: ${hours}h total, Avg Rating ${d.avgRating.toFixed(1)} (${d.count} sessions)`;
+    })
     .join("; ");
 };
 
-// Analyzes if session duration affects user's focus rating.
+// Analyze duration vs rating
 const analyzeDurationVsRating = async (userId) => {
   const sessions = await Session.find({
     userId,
@@ -54,7 +52,7 @@ const analyzeDurationVsRating = async (userId) => {
     rating: { $exists: true },
   }).select("duration rating");
 
-  if (sessions.length < 5) return "Not enough data.";
+  if (sessions.length < 3) return "Not enough data for duration analysis.";
 
   const shortSessions = sessions.filter((s) => s.duration < 30 * 60 * 1000);
   const mediumSessions = sessions.filter(
@@ -63,11 +61,14 @@ const analyzeDurationVsRating = async (userId) => {
   const longSessions = sessions.filter((s) => s.duration >= 90 * 60 * 1000);
 
   const avgRating = (arr) =>
-    arr.length > 0 ? arr.reduce((sum, s) => sum + s.rating, 0) / arr.length : 0;
+    arr.length > 0
+      ? (arr.reduce((sum, s) => sum + s.rating, 0) / arr.length).toFixed(1)
+      : "N/A";
 
-  return `Short Sessions (<30m): Avg Rating ${avgRating(shortSessions).toFixed(2)}; Medium Sessions (30-90m): Avg Rating ${avgRating(mediumSessions).toFixed(2)}; Long Sessions (>90m): Avg Rating ${avgRating(longSessions).toFixed(2)}`;
+  return `Short (<30m): Rating ${avgRating(shortSessions)}; Medium (30-90m): Rating ${avgRating(mediumSessions)}; Long (>90m): Rating ${avgRating(longSessions)}`;
 };
 
+// Analyze tag performance
 const analyzeTagPerformance = async (userId) => {
   const performance = await Session.aggregate([
     {
@@ -82,21 +83,22 @@ const analyzeTagPerformance = async (userId) => {
       $group: {
         _id: "$tags",
         avgRating: { $avg: "$rating" },
+        totalHours: { $sum: { $divide: ["$duration", 3600000] } },
         count: { $sum: 1 },
       },
     },
     { $sort: { avgRating: -1 } },
-    { $match: { count: { $gt: 2 } } },
   ]);
 
-  const topPerformingTags = performance.slice(0, 3).map((p) => p._id);
-  const improvementAreaTags = performance
-    .slice(-3)
-    .reverse()
-    .map((p) => p._id);
-  return { topPerformingTags, improvementAreaTags };
+  return performance.map((p) => ({
+    tag: p._id,
+    avgRating: parseFloat(p.avgRating.toFixed(1)),
+    totalHours: parseFloat(p.totalHours.toFixed(1)),
+    sessions: p.count,
+  }));
 };
 
+// Analyze peak time
 const analyzePeakTime = async (userId) => {
   const sessions = await Session.find({
     userId,
@@ -104,7 +106,7 @@ const analyzePeakTime = async (userId) => {
     rating: { $exists: true },
   }).select("rating intervals");
 
-  const timeBlockRatings = {
+  const timeBlocks = {
     "Morning (6am-12pm)": { totalRating: 0, count: 0 },
     "Afternoon (12pm-5pm)": { totalRating: 0, count: 0 },
     "Evening (5pm-10pm)": { totalRating: 0, count: 0 },
@@ -112,102 +114,168 @@ const analyzePeakTime = async (userId) => {
   };
 
   sessions.forEach((session) => {
+    if (!session.intervals?.[0]?.startTime) return;
     const startHour = new Date(session.intervals[0].startTime).getHours();
+
     let block = "Night (10pm-6am)";
     if (startHour >= 6 && startHour < 12) block = "Morning (6am-12pm)";
     else if (startHour >= 12 && startHour < 17) block = "Afternoon (12pm-5pm)";
     else if (startHour >= 17 && startHour < 22) block = "Evening (5pm-10pm)";
 
-    timeBlockRatings[block].totalRating += session.rating;
-    timeBlockRatings[block].count++;
+    timeBlocks[block].totalRating += session.rating;
+    timeBlocks[block].count++;
   });
 
-  let peakProductivityTime = "Not enough data";
+  let peakTime = "Not enough data";
   let maxAvg = 0;
 
-  for (const block in timeBlockRatings) {
-    if (timeBlockRatings[block].count > 0) {
-      const avg =
-        timeBlockRatings[block].totalRating / timeBlockRatings[block].count;
+  for (const block in timeBlocks) {
+    if (timeBlocks[block].count > 0) {
+      const avg = timeBlocks[block].totalRating / timeBlocks[block].count;
       if (avg > maxAvg) {
         maxAvg = avg;
-        peakProductivityTime = block;
+        peakTime = block;
       }
     }
   }
 
-  return { peakProductivityTime };
+  return peakTime;
 };
 
+// Get goal summary
+const getGoalSummary = async (userId) => {
+  const goals = await Goal.find({ userId });
+
+  if (goals.length === 0) return "No goals set.";
+
+  const completed = goals.filter((g) => g.status === "completed").length;
+  const inProgress = goals.filter((g) => g.status === "in-progress").length;
+  const overdue = goals.filter(
+    (g) => g.deadline && new Date(g.deadline) < new Date() && g.status !== "completed"
+  ).length;
+
+  const goalDetails = goals
+    .filter((g) => g.status !== "completed")
+    .map((g) => {
+      const logged = (g.loggedDuration / 3600000).toFixed(1);
+      const target = (g.targetDuration / 3600000).toFixed(1);
+      const pct = g.targetDuration > 0 ? Math.round((g.loggedDuration / g.targetDuration) * 100) : 0;
+      return `"${g.title}" (${g.tag}): ${logged}h / ${target}h (${pct}%)`;
+    })
+    .join("; ");
+
+  return `${goals.length} total goals, ${completed} completed, ${inProgress} in-progress, ${overdue} overdue. Active goals: ${goalDetails}`;
+};
+
+// Run all analyses and generate AI report
 export const runAllAnalysesForUser = async (userId) => {
   try {
     const dayOfWeekSummary = await analyzeDayOfWeekPerformance(userId);
     const durationSummary = await analyzeDurationVsRating(userId);
-    const { topPerformingTags, improvementAreaTags } =
-      await analyzeTagPerformance(userId);
-    const peakProductivityTime = (await analyzePeakTime(userId))
-      .peakProductivityTime;
+    const tagPerformance = await analyzeTagPerformance(userId);
+    const peakTime = await analyzePeakTime(userId);
+    const goalSummary = await getGoalSummary(userId);
+
+    const tagSummary = tagPerformance.length > 0
+      ? tagPerformance.map((t) => `${t.tag}: ${t.totalHours}h, rating ${t.avgRating} (${t.sessions} sessions)`).join("; ")
+      : "No tag data available";
+
+    const bestTag = tagPerformance[0]?.tag || "N/A";
+    const worstTag = tagPerformance.length > 0 ? tagPerformance[tagPerformance.length - 1]?.tag : "N/A";
+    const avgRating = tagPerformance.length > 0
+      ? parseFloat((tagPerformance.reduce((sum, t) => sum + t.avgRating, 0) / tagPerformance.length).toFixed(1))
+      : 0;
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
     const prompt = `
-      You are a world-class productivity coach named "Flow". Your tone is encouraging, insightful, and actionable.
-      Analyze the following user productivity data and provide a detailed analysis.
+You are "FocusFlow AI", a world-class productivity coach. Analyze the following user data and return a structured JSON report.
 
-      Data Summary:
-      - User's Top Performing Tags (highest avg rating): ${topPerformingTags.join(", ") || "Not enough data"}
-      - User's Tags with Room for Improvement (lowest avg rating): ${improvementAreaTags.join(", ") || "Not enough data"}
-      - User's Peak Productivity Time of Day: ${peakProductivityTime}
-      - User's Performance by Day of the Week: ${dayOfWeekSummary}
-      - User's Focus vs. Session Duration: ${durationSummary}
+DATA:
+- Tag Performance: ${tagSummary}
+- Peak Productivity Time: ${peakTime}
+- Day-of-Week Breakdown: ${dayOfWeekSummary}
+- Focus vs. Duration: ${durationSummary}
+- Goal Progress: ${goalSummary}
 
-      Based on this data, generate a JSON object with the following structure. Do NOT include any text outside of the JSON object itself.
-      {
-        "keyStrengths": [
-          "A short, encouraging sentence about one of the user's key strengths.",
-          "Another short, encouraging sentence about a different strength."
-        ],
-        "keyOpportunities": [
-          "A constructive sentence identifying an area for potential improvement.",
-          "Another constructive sentence about a different opportunity."
-        ],
-        "coreInsight": "A single, powerful paragraph (3-4 sentences) that connects different data points to reveal a core habit or pattern about the user. For example, 'It seems you're a highly effective morning person, especially when you tackle creative tasks like 'Writing' on Mondays. However, your focus tends to dip during long meetings in the afternoon later in the week.'",
-        "actionableSuggestion": "Provide a single, clear, and actionable suggestion based on the coreInsight. For example, 'Try scheduling your most important creative tasks on Monday and Tuesday mornings, and consider breaking up long afternoon sessions into smaller, 30-minute chunks.'"
-      }
-    `;
+Return ONLY a valid JSON object (no markdown, no backticks) with this exact structure:
+{
+  "timeDistribution": {
+    "summary": "1-2 sentence overview of how the user distributes their time across activities",
+    "insights": ["insight 1", "insight 2"]
+  },
+  "productivityPatterns": {
+    "summary": "1-2 sentence overview of when the user is most productive",
+    "peakDay": "The day with highest productivity",
+    "peakTime": "The time block with highest focus",
+    "insights": ["insight 1", "insight 2"]
+  },
+  "focusQuality": {
+    "summary": "1-2 sentence overview of the user's focus quality",
+    "insights": ["insight 1", "insight 2"]
+  },
+  "goalProgress": {
+    "summary": "1-2 sentence overview of goal completion progress",
+    "insights": ["insight 1", "insight 2"]
+  },
+  "recommendations": [
+    {
+      "title": "Short actionable title",
+      "description": "1-2 sentence detailed suggestion",
+      "priority": "high"
+    },
+    {
+      "title": "Another suggestion",
+      "description": "1-2 sentence detailed suggestion",
+      "priority": "medium"
+    },
+    {
+      "title": "Another suggestion",
+      "description": "1-2 sentence detailed suggestion",
+      "priority": "low"
+    }
+  ]
+}
+
+Be encouraging but honest. Use specific data points from the provided information.`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
     let analysisText = response.text();
 
+    // Strip markdown code fences if present
     analysisText = analysisText
       .replace(/```json/g, "")
       .replace(/```/g, "")
       .trim();
 
-    const analysisJSON = JSON.parse(analysisText);
+    const analysis = JSON.parse(analysisText);
 
     await User.findByIdAndUpdate(userId, {
       $set: {
-        "aiInsights.topPerformingTags": topPerformingTags,
-        "aiInsights.improvementAreaTags": improvementAreaTags,
-        "aiInsights.peakProductiveTime": peakProductivityTime,
-        "aiInsights.keyStrengths": analysisJSON.keyStrengths,
-        "aiInsights.keyOpportunities": analysisJSON.keyOpportunities,
-        "aiInsights.coreInsight": analysisJSON.coreInsight,
-        "aiInsights.actionableSuggestion": analysisJSON.actionableSuggestion,
+        "aiInsights.timeDistribution": analysis.timeDistribution,
+        "aiInsights.productivityPatterns": {
+          ...analysis.productivityPatterns,
+          peakDay: analysis.productivityPatterns.peakDay,
+          peakTime: analysis.productivityPatterns.peakTime || peakTime,
+        },
+        "aiInsights.focusQuality": {
+          ...analysis.focusQuality,
+          avgRating,
+          bestTag,
+          worstTag,
+        },
+        "aiInsights.goalProgress": analysis.goalProgress,
+        "aiInsights.recommendations": analysis.recommendations,
         "aiInsights.lastAnalyzed": new Date(),
       },
     });
 
-    console.log(`Successfully ran enhanced AI analysis for user ${userId}`);
+    console.log(`AI analysis completed for user ${userId}`);
   } catch (error) {
-    console.error(
-      `Error running enhanced AI analysis for user ${userId}:`,
-      error
-    );
-
+    console.error(`AI analysis failed for user ${userId}:`, error);
     throw new Error(
-      "Failed to generate AI analysis. The model may be busy or the data is insufficient."
+      "Failed to generate AI analysis. Please ensure you have enough session data."
     );
   }
 };

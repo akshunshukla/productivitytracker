@@ -1,37 +1,50 @@
-/**
- * Formats a duration in seconds into a "HH:MM:SS" string.
- * @ param {number} seconds - The total duration in seconds.
- * @ returns {string} The formatted time string.
- */
+// Format duration in seconds to HH:MM:SS
 export const formatDuration = (seconds) => {
-  if (typeof seconds !== 'number' || seconds < 0) return "00:00:00";
+  if (typeof seconds !== "number" || seconds < 0) return "00:00:00";
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
-  return [hours, minutes, secs]
-    .map(v => String(v).padStart(2, '0'))
-    .join(':');
+  return [hours, minutes, secs].map((v) => String(v).padStart(2, "0")).join(":");
 };
 
-/**
- * Formats an ISO date string into a readable format (e.g., "Jul 23, 2025, 01:25 AM").
- * @param {string} dateString - The ISO date string from the server.
- * @returns {string} The formatted date string.
- */
+// Format ms to hours string
+export const formatHours = (ms) => {
+  if (!ms || ms <= 0) return "0h";
+  const hours = ms / (1000 * 60 * 60);
+  if (hours < 0.1) return `${Math.round(ms / (1000 * 60))}m`;
+  return `${hours.toFixed(1)}h`;
+};
+
+// Format ms to hours and minutes string
+export const formatHoursMinutes = (ms) => {
+  if (!ms || ms <= 0) return "0h 0m";
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  return `${hours}h ${minutes}m`;
+};
+
+// Format ISO date to readable string
 export const formatDate = (dateString) => {
   if (!dateString) return "N/A";
   try {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   } catch (error) {
-    console.error("Invalid date string:", dateString);
     return "Invalid Date";
   }
+};
+
+// Calculate days overdue
+export const getDaysOverdue = (deadline) => {
+  if (!deadline) return null;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const deadlineDate = new Date(deadline);
+  deadlineDate.setHours(0, 0, 0, 0);
+  const diffMs = now - deadlineDate;
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 };
