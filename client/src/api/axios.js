@@ -10,4 +10,24 @@ const api = axios.create({
   withCredentials: true,
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest._retry && originalRequest.url !== "/user/refreshAccessToken") {
+      originalRequest._retry = true;
+      try {
+        await api.post("/user/refreshAccessToken");
+        return api(originalRequest);
+      } catch (refreshError) {
+        if (window.location.pathname !== "/login" && window.location.pathname !== "/register") {
+          window.location.href = "/login";
+        }
+        return Promise.reject(refreshError);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;
