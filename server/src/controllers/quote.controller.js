@@ -34,10 +34,18 @@ const generateMotivationalQuote = asyncHandler(async (req, res) => {
       .json(new ApiResponse(200, quote, "Quote generated successfully"));
   } catch (error) {
     console.error("Error generating quote:", error);
-    throw new ApiError(
-      500,
-      "Failed to generate motivational quote from AI service."
-    );
+    
+    const fallbackQuotes = [
+      { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
+      { text: "Focus on being productive instead of busy.", author: "Tim Ferriss" },
+      { text: "Do the hard jobs first. The easy jobs will take care of themselves.", author: "Dale Carnegie" },
+      { text: "Amateurs sit and wait for inspiration, the rest of us just get up and go to work.", author: "Stephen King" }
+    ];
+    const randomQuote = fallbackQuotes[Math.floor(Math.random() * fallbackQuotes.length)];
+    
+    return res
+      .status(200)
+      .json(new ApiResponse(200, randomQuote, "Fallback quote used due to AI service unavailability."));
   }
 });
 
