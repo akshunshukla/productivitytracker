@@ -1,6 +1,7 @@
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { Session } from "../models/session.model.js";
+import { Insight } from "../models/insight.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import mongoose from "mongoose";
 
@@ -218,6 +219,12 @@ const getTodaysSummary = asyncHandler(async (req, res) => {
   );
 });
 
+// Get AI Insights history
+const getInsightsHistory = asyncHandler(async (req, res) => {
+  const insights = await Insight.find({ userId: req.user._id }).sort({ createdAt: -1 });
+  return res.status(200).json(new ApiResponse(200, insights, "Insights history fetched successfully."));
+});
+
 export {
   getWeeklySummary,
   getDailyBreakdown,
@@ -225,4 +232,5 @@ export {
   getUserTags,
   getLastFiveSessions,
   getTodaysSummary,
+  getInsightsHistory,
 };

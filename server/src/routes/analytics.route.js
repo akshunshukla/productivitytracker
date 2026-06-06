@@ -6,14 +6,17 @@ import {
   getWeeklySummary,
   getLastFiveSessions,
   getTodaysSummary,
+  getInsightsHistory,
 } from "../controllers/report.controller.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { runAllAnalysesForUser } from "../services/analytics.service.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import { aiLimiter } from "../middlewares/rateLimiter.js";
 
 const router = Router();
 
 router.route("/run-analysis").post(
+  aiLimiter,
   asyncHandler(async (req, res) => {
     await runAllAnalysesForUser(req.user._id);
     return res
@@ -28,5 +31,6 @@ router.route("/tagWiseStats").get(getTagWiseStats);
 router.route("/tags").get(getUserTags);
 router.route("/last-five").get(getLastFiveSessions);
 router.route("/todays-summary").get(getTodaysSummary);
+router.route("/history").get(getInsightsHistory);
 
 export default router;

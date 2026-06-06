@@ -1,6 +1,7 @@
 import { Session } from "../models/session.model.js";
 import { Goal } from "../models/goal.model.js";
 import { User } from "../models/user.model.js";
+import { Insight } from "../models/insight.model.js";
 import mongoose from "mongoose";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -268,6 +269,26 @@ Be encouraging but honest. Use specific data points from the provided informatio
         "aiInsights.goalProgress": analysis.goalProgress,
         "aiInsights.recommendations": analysis.recommendations,
         "aiInsights.lastAnalyzed": new Date(),
+      },
+    });
+
+    await Insight.create({
+      userId,
+      reportData: {
+        timeDistribution: analysis.timeDistribution,
+        productivityPatterns: {
+          ...analysis.productivityPatterns,
+          peakDay: analysis.productivityPatterns.peakDay,
+          peakTime: analysis.productivityPatterns.peakTime || peakTime,
+        },
+        focusQuality: {
+          ...analysis.focusQuality,
+          avgRating,
+          bestTag,
+          worstTag,
+        },
+        goalProgress: analysis.goalProgress,
+        recommendations: analysis.recommendations,
       },
     });
 
