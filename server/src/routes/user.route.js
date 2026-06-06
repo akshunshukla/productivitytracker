@@ -7,12 +7,13 @@ import {
   refreshAccessToken,
 } from "../controllers/user.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
+import { authLimiter } from "../middlewares/rateLimiter.js";
 
 const router = Router();
 
 
-router.route("/register").post(registerUser);
-router.route("/login").post(loginUser);
+router.route("/register").post(authLimiter, registerUser);
+router.route("/login").post(authLimiter, loginUser);
 router.route("/refreshAccessToken").post(refreshAccessToken);
 
 
