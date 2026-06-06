@@ -37,6 +37,21 @@ const userSchema = new Schema(
     refreshToken: {
       type: String,
     },
+    timezone: {
+      type: String,
+      default: "UTC",
+    },
+    currentStreak: {
+      type: Number,
+      default: 0,
+    },
+    longestStreak: {
+      type: Number,
+      default: 0,
+    },
+    lastActiveDate: {
+      type: String, // YYYY-MM-DD
+    },
     aiInsights: {
       timeDistribution: {
         summary: String,

@@ -101,6 +101,31 @@ const endSession = asyncHandler(async (req, res) => {
     }
   }
 
+  // Update Streak
+  const user = req.user;
+  const today = new Date().toISOString().split("T")[0];
+  if (user.lastActiveDate !== today) {
+    if (user.lastActiveDate) {
+      const lastActive = new Date(user.lastActiveDate);
+      const current = new Date(today);
+      const diffTime = Math.abs(current - lastActive);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 1) {
+        user.currentStreak += 1;
+      } else if (diffDays > 1) {
+        user.currentStreak = 1;
+      }
+    } else {
+      user.currentStreak = 1;
+    }
+    user.lastActiveDate = today;
+    if (user.currentStreak > user.longestStreak) {
+      user.longestStreak = user.currentStreak;
+    }
+    await user.save();
+  }
+
   return res
     .status(200)
     .json(new ApiResponse(200, session, "Session completed successfully."));
@@ -167,6 +192,18 @@ const deleteSession = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Session not found.");
   }
 
+  // Goal Rollback
+  if (deletedSession.goalId) {
+    const goal = await Goal.findById(deletedSession.goalId);
+    if (goal) {
+      goal.loggedDuration = Math.max(0, goal.loggedDuration - deletedSession.duration);
+      if (goal.status === "completed" && goal.loggedDuration < goal.targetDuration) {
+        goal.status = "in-progress";
+      }
+      await goal.save();
+    }
+  }
+
   return res
     .status(200)
     .json(new ApiResponse(200, null, "Session deleted."));
@@ -184,6 +221,59 @@ const getCurrentSession = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, currentSession, "Current session fetched."));
 });
 
+// Update session notes/rating
+const updateSession = asyncHandler(async (req, res) => {
+  const { sessionId } = req.params;
+  const { rating, notes } = req.body;
+
+  const session = await Session.findOne({
+    _id: sessionId,
+    userId: req.user._id,
+  });
+
+  if (!session) {
+    throw new ApiError(404, "Session not found.");
+  }
+
+  if (rating !== undefined) {
+    if (rating < 1 || rating > 5) {
+      throw new ApiError(400, "Rating must be between 1 and 5.");
+    }
+    session.rating = rating;
+  }
+  
+  if (notes !== undefined) {
+    session.notes = notes;
+  }
+
+  await session.save();
+
+  return res.status(200).json(new ApiResponse(200, session, "Session updated."));
+});
+
+// Get past sessions
+const getPastSessions = asyncHandler(async (req, res) => {
+  const { tag, startDate, endDate, rating, page = 1, limit = 10 } = req.query;
+  const filter = { userId: req.user._id, status: "completed" };
+
+  if (tag) filter.tags = tag.toLowerCase().trim();
+  if (startDate && endDate) {
+    filter.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
+  }
+  if (rating) filter.rating = Number(rating);
+
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+  const total = await Session.countDocuments(filter);
+  const sessions = await Session.find(filter).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit));
+
+  return res.status(200).json(new ApiResponse(200, {
+    sessions,
+    totalPages: Math.ceil(total / parseInt(limit)),
+    currentPage: parseInt(page),
+    totalSessions: total
+  }, "Past sessions fetched."));
+});
+
 export {
   startSession,
   pauseSession,
@@ -191,4 +281,6 @@ export {
   endSession,
   deleteSession,
   getCurrentSession,
+  updateSession,
+  getPastSessions,
 };
