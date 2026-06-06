@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { SessionProvider } from "@/context/SessionContext";
 import DashboardLayout from "@/components/DashboardLayout";
 import SessionTimer from "@/components/SessionTimer";
 import ActiveGoals from "@/components/ActiveGoals";
@@ -29,7 +28,6 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <SessionProvider>
         <div className="space-y-4 animate-fade-in">
           {/* Row 1: Quote + Today's Stats — compact banner */}
           <div className="flex flex-col sm:flex-row gap-4 items-stretch">
@@ -74,7 +72,6 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-      </SessionProvider>
     </DashboardLayout>
   );
 };

@@ -11,6 +11,14 @@ export const SessionProvider = ({ children }) => {
   const [sessionUpdated, setSessionUpdated] = useState(0);
 
   useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+
+
+  useEffect(() => {
     const fetchCurrentSession = async () => {
       try {
         setIsLoading(true);
