@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import useAuth from "@/hooks/useAuth";
 import api from "@/api/axios";
@@ -142,6 +142,23 @@ const InsightCard = ({ categoryKey, data }) => {
 const InsightsPage = () => {
   const { user, loading: authLoading } = useAuth();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [insightHistory, setInsightHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const fetchHistory = async () => {
+    try {
+      const res = await api.get("/analytics/history");
+      setInsightHistory(res.data.data);
+    } catch (error) {
+      toast.error("Failed to load history");
+    }
+  };
+
+  useEffect(() => {
+    if (showHistory) {
+      fetchHistory();
+    }
+  }, [showHistory]);
 
   const handleRunAnalysis = async () => {
     setIsAnalyzing(true);
@@ -173,11 +190,18 @@ const InsightsPage = () => {
       <div className="animate-fade-in">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">AI Insights</h1>
-          <Button
-            onClick={handleRunAnalysis}
-            disabled={isAnalyzing}
-            className="gap-2"
-          >
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowHistory(!showHistory)}
+            >
+              {showHistory ? "Hide History" : "View History"}
+            </Button>
+            <Button
+              onClick={handleRunAnalysis}
+              disabled={isAnalyzing}
+              className="gap-2"
+            >
             {isAnalyzing ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -189,7 +213,8 @@ const InsightsPage = () => {
                 Generate Analysis
               </>
             )}
-          </Button>
+            </Button>
+          </div>
         </div>
 
         {authLoading ? (
@@ -211,7 +236,7 @@ const InsightsPage = () => {
         ) : (
           <div className="space-y-6">
             {/* Last analyzed timestamp */}
-            {insights.lastAnalyzed && (
+            {insights?.lastAnalyzed && (
               <p className="text-xs text-muted-foreground">
                 Last analyzed:{" "}
                 {format(new Date(insights.lastAnalyzed), "MMM d, yyyy 'at' h:mm a")}
@@ -287,6 +312,28 @@ const InsightsPage = () => {
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {showHistory && (
+              <div className="mt-8 space-y-4">
+                <h3 className="text-xl font-bold">Past Insights</h3>
+                {insightHistory?.map((h) => (
+                  <Card key={h._id}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm text-muted-foreground">
+                        Generated on {h.createdAt ? format(new Date(h.createdAt), "MMM d, yyyy 'at' h:mm a") : "Unknown"}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm space-y-2">
+                      <p><strong>Time:</strong> {h.reportData?.timeDistribution?.summary}</p>
+                      <p><strong>Productivity:</strong> {h.reportData?.productivityPatterns?.summary}</p>
+                      <p><strong>Focus:</strong> {h.reportData?.focusQuality?.summary}</p>
+                      <p><strong>Goals:</strong> {h.reportData?.goalProgress?.summary}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+                {(!insightHistory || insightHistory.length === 0) && <p className="text-sm text-muted-foreground">No history found.</p>}
+              </div>
             )}
           </div>
         )}

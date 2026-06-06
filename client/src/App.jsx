@@ -5,8 +5,10 @@ import Dashboard from "./pages/Dashboard";
 import Analytics from "./pages/Analytics";
 import GoalsPage from "./pages/Goals";
 import InsightsPage from "./pages/Insights";
+import SessionHistory from "./pages/SessionHistory";
 import ProtectedRoute from "./ProtectedRoute";
 import { Toaster } from "@/components/ui/sonner";
+import GlobalTimer from "./components/GlobalTimer";
 
 function App() {
   return (
@@ -23,8 +25,10 @@ function App() {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/goals" element={<GoalsPage />} />
           <Route path="/insights" element={<InsightsPage />} />
+          <Route path="/history" element={<SessionHistory />} />
         </Route>
       </Routes>
+      <GlobalTimer />
       <Toaster richColors />
     </>
   );

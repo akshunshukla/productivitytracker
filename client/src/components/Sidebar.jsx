@@ -8,6 +8,7 @@ import {
   Timer,
   Menu,
   X,
+  History,
 } from "lucide-react";
 import useAuth from "@/hooks/useAuth";
 import { useState } from "react";
@@ -17,6 +18,7 @@ const navLinks = [
   { to: "/goals", icon: Target, label: "Goals" },
   { to: "/analytics", icon: BarChart2, label: "Analytics" },
   { to: "/insights", icon: Sparkles, label: "AI Insights" },
+  { to: "/history", icon: History, label: "Session History" },
 ];
 
 const Sidebar = () => {
