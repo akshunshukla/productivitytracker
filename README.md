@@ -1,4 +1,3 @@
-<![CDATA[<div align="center">
 
 # FocusFlow 🎯
 
@@ -570,7 +569,4 @@ This project is licensed under the [MIT License](LICENSE).
 
 <div align="center">
 
-**Built with ❤️ by [Akshun Shukla](https://github.com/akshunshukla)**
-
 </div>
-]]>
